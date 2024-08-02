@@ -1,0 +1,31 @@
+function copyMatchingRows() {
+  const book1Id = 'MY_ID_HOJA_1';
+  const book2Id = 'MY_ID_HOJA_2';
+  
+  const sheet1Name = 'HOJA_1';
+  const sheet2Name = 'HOJA_2';
+  const newSheetName = 'RESULTADO';
+
+  const book1 = SpreadsheetApp.openById(book1Id);
+  const book2 = SpreadsheetApp.openById(book2Id);
+
+  const sheet1 = book1.getSheetByName(sheet1Name);
+  const sheet2 = book2.getSheetByName(sheet2Name);
+
+  const data1 = sheet1.getRange('A:A').getValues().flat();
+  const data2 = sheet2.getDataRange().getValues();
+
+  let resultSheet = book1.getSheetByName(newSheetName);
+  if (resultSheet) {
+    book1.deleteSheet(resultSheet);
+  }
+  resultSheet = book1.insertSheet(newSheetName);
+
+  const results = data2.filter(row => data1.includes(row[0]) && row[0]);
+
+  if (results.length > 0) {
+    resultSheet.getRange(1, 1, results.length, results[0].length).setValues(results);
+  } else {
+    resultSheet.getRange('A1').setValue('No se encontraron coincidencias');
+  }
+}
