@@ -1,0 +1,25 @@
+import pandas as pd
+
+# Leer el archivo Excel y convertirlo en un DataFrame
+df = pd.read_excel('tu_archivo.xlsx')
+
+# Convertir la columna de fecha a tipo datetime
+df['fecha'] = pd.to_datetime(df['fecha'])
+
+# Ordenar por root y fecha para facilitar la comparación
+df = df.sort_values(by=['root', 'fecha'])
+
+# Crear una columna para almacenar los duplicados considerando el umbral de tres milisegundos
+df['duplicado'] = False
+
+# Iterar por las filas y marcar los duplicados
+for i in range(1, len(df)):
+    if df.loc[i, 'root'] == df.loc[i-1, 'root']:
+        time_diff = (df.loc[i, 'fecha'] - df.loc[i-1, 'fecha']).total_seconds() * 1000
+        if time_diff <= 3:
+            df.loc[i, 'duplicado'] = True
+
+# Contar los duplicados
+duplicados = df[df['duplicado']].shape[0]
+
+print(f'Número de duplicados: {duplicados}')
