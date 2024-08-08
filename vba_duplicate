@@ -1,0 +1,57 @@
+Sub ContarDuplicados()
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    Dim rootCol As Range
+    Dim dateCol As Range
+    Dim isDuplicated() As Boolean
+    Dim countDuplicados As Long
+    Dim timeDiff As Double
+    Dim threshold As Double
+
+    ' Configurar la hoja de trabajo y las columnas
+    Set ws = ThisWorkbook.Sheets("NombreDeTuHoja") ' Cambia "NombreDeTuHoja" por el nombre de tu hoja
+    Set rootCol = ws.Range("A2:A" & ws.Cells(ws.Rows.Count, "A").End(xlUp).Row) ' Cambia "A2:A" por la columna de root
+    Set dateCol = ws.Range("B2:B" & ws.Cells(ws.Rows.Count, "B").End(xlUp).Row) ' Cambia "B2:B" por la columna de fecha
+    
+    lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row ' Cambia "A" por la columna de root si es diferente
+
+    ' Configurar el umbral en milisegundos (cambia 3 por el número de milisegundos deseado)
+    threshold = 3
+    
+    ' Inicializar el array para marcar duplicados
+    ReDim isDuplicated(2 To lastRow) As Boolean
+    
+    ' Ordenar las columnas por root y fecha
+    ws.Sort.SortFields.Clear
+    ws.Sort.SortFields.Add Key:=rootCol, SortOn:=xlSortOnValues, Order:=xlAscending, DataOption:=xlSortNormal
+    ws.Sort.SortFields.Add Key:=dateCol, SortOn:=xlSortOnValues, Order:=xlAscending, DataOption:=xlSortNormal
+    With ws.Sort
+        .SetRange ws.Range("A1:B" & lastRow) ' Cambia "A1:B" por el rango que contiene root y fecha
+        .Header = xlYes
+        .MatchCase = False
+        .Orientation = xlTopToBottom
+        .SortMethod = xlPinYin
+        .Apply
+    End With
+    
+    ' Iterar por las filas y marcar los duplicados
+    For i = 3 To lastRow
+        If ws.Cells(i, 1).Value = ws.Cells(i - 1, 1).Value Then ' Cambia "1" por el número de columna de root
+            timeDiff = DateDiff("s", ws.Cells(i - 1, 2).Value, ws.Cells(i, 2).Value) * 1000 ' Cambia "2" por el número de columna de fecha
+            If timeDiff <= threshold Then
+                isDuplicated(i) = True
+            End If
+        End If
+    Next i
+    
+    ' Contar los duplicados
+    countDuplicados = 0
+    For i = 2 To lastRow
+        If isDuplicated(i) Then
+            countDuplicados = countDuplicados + 1
+        End If
+    Next i
+    
+    MsgBox "Número de duplicados: " & countDuplicados
+End Sub
