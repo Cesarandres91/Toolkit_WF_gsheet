@@ -1,6 +1,6 @@
 function fetchEmailsAndUpdateSheet() {
-  const LABEL_NAME = 'LABEL'; // Nombre de la etiqueta de Gmail a procesar
-  const SHEET_ID = 'ID_HOJA'; // ID de la hoja de cálculo de Google Sheets
+  const LABELS = ['label1', 'label2']; // Nombres de las etiquetas de Gmail a procesar
+  const SHEET_ID = 'ID_DE_LA_HOJA'; // ID de la hoja de cálculo de Google Sheets
   const REVIEWED_LABEL_NAME = 'Revisado'; // Nombre de la etiqueta a añadir después de procesar
   const NO_READ_LABEL_NAME = 'NO_LEER'; // Nombre de la etiqueta para omitir correos
   const MAX_BODY_LENGTH = 5000; // Longitud máxima del cuerpo del mensaje truncado
@@ -10,6 +10,7 @@ function fetchEmailsAndUpdateSheet() {
   const startTime = new Date();
   const today = new Date();
   const lista_roja = "test@test.com, test2@test.com"; // Lista roja de correos separados por comas
+  const apagaremail = 0; // 1 para enviar emails, 0 para no enviar
 
   // Borrar toda la información de la hoja
   sheet.clear();
@@ -20,7 +21,11 @@ function fetchEmailsAndUpdateSheet() {
   }
 
   try {
-    const threads = GmailApp.getUserLabelByName(LABEL_NAME).getThreads();
+    let threads = [];
+    LABELS.forEach(labelName => {
+      threads = threads.concat(GmailApp.getUserLabelByName(labelName).getThreads());
+    });
+
     const reviewedLabel = GmailApp.getUserLabelByName(REVIEWED_LABEL_NAME);
     const noReadLabel = GmailApp.getUserLabelByName(NO_READ_LABEL_NAME);
     const existingEmailIds = getEmailIdsFromSheet(sheet);
@@ -93,11 +98,15 @@ function fetchEmailsAndUpdateSheet() {
 
     const endTime = new Date();
     const duration = (endTime - startTime) / 1000; // Duración en segundos
-    sendCompletionEmail(userEmail, processedCount, duration, SHEET_ID);
+
+    // Enviar email si apagaremail es 1
+    if (apagaremail === 1) {
+      sendCompletionEmail(userEmail, processedCount, duration, SHEET_ID);
+    }
 
     // Forzar el tamaño de todas las filas a 21 y establecer el ajuste de texto en recorte
     const lastRow = sheet.getLastRow();
-    setRowHeightsForcedAndClip(sheet, 1, lastRow, 21);
+    setRowHeightsForcedAndClip();
 
   } catch (error) {
     Logger.log('Error en la función principal: ' + error.message);
@@ -173,16 +182,27 @@ function getFirstMessageLink(thread) {
 
 function sendCompletionEmail(userEmail, processedCount, duration, sheetId) {
   const subject = 'Gmail Processing Completed';
-  const body = `Hola,\n\nEl procesamiento de correos ha finalizado.\n\nTotal de correos procesados: ${processedCount}\nDuración: ${duration} segundos\n\nPuedes ver la planilla en el siguiente enlace: https://docs.google.com/spreadsheets/d/${sheetId}\n\nSaludos,\nTu Script de Google Apps`;
+  const body = `Hola,\n\nEl procesamiento de correos ha finalizado.\n\nTotal de correos procesados: ${processedCount}\nDuración: ${duration} segundos\n\nPuedes ver la planilla en el siguiente enlace: https://docs.google.com/spreadsheets/d/${sheetId}\n\n`;
   MailApp.sendEmail(userEmail, subject, body);
 }
 
-function setRowHeightsForcedAndClip(sheet, startRow, numRows, height) {
-  for (let i = startRow; i <= numRows; i++) {
-    sheet.setRowHeight(i, height);
+function setRowHeightsForcedAndClip() {
+// ID de la hoja de cálculo
+  const SHEET_ID = '1qn_xndHZhyIzouECb5PR-wifhU4Hls183oEopdLdAsA';
+  
+  // Abre la hoja de cálculo y obtiene la hoja activa
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getActiveSheet();
+  
+  // Obtiene el número total de filas en la hoja
+  const lastRow = sheet.getLastRow();
+  
+  // Itera a través de todas las filas y establece la altura a 21
+  for (let i = 1; i <= lastRow; i++) {
+    sheet.setRowHeight(i, 21);
   }
-  const range = sheet.getRange(startRow, 1, numRows, sheet.getLastColumn());
-  range.setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  
+  // Fuerza el ajuste de altura incluso si hay celdas con mucho contenido
+  sheet.setRowHeightsForced(1, lastRow, 21);
 }
 
 function calculateBusinessDays(startDate, endDate) {
