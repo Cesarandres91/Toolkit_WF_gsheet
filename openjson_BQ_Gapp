@@ -1,0 +1,71 @@
+function generateBigQuerySQL() {
+  const sheet = SpreadsheetApp.getActiveSheet();
+  const jsonString = sheet.getRange("A1").getValue(); //  JSON  en A1
+  const jsonObj = JSON.parse(jsonString);
+
+  let sqlParts = [];
+  let ctes = [];
+
+  function processObject(obj, prefix = '') {
+    for (let key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        const fullKey = prefix ? `${prefix}.${key}` : key;
+        const escapedKey = fullKey.replace(/\./g, '_');
+        
+        if (typeof obj[key] === 'object' && obj[key] !== null) {
+          if (Array.isArray(obj[key])) {
+            sqlParts.push(`JSON_EXTRACT(json_column, '$.${fullKey}') AS ${escapedKey}`);
+            const cteNameNoArray = escapedKey.replace(/s$/, '');
+            ctes.push(generateArrayCTE(fullKey, escapedKey, cteNameNoArray, obj[key][0]));
+          } else {
+            sqlParts.push(`JSON_EXTRACT(json_column, '$.${fullKey}') AS ${escapedKey}`);
+            ctes.push(generateObjectCTE(fullKey, escapedKey, obj[key]));
+          }
+        } else {
+          sqlParts.push(`JSON_EXTRACT_SCALAR(json_column, '$.${fullKey}') AS ${escapedKey}`);
+        }
+      }
+    }
+  }
+
+  function generateArrayCTE(jsonPath, arrayName, itemName, itemObj) {
+    let itemSqlParts = [];
+    processObject(itemObj, '');
+    const itemSql = itemSqlParts.join(',\n    ');
+    return `${arrayName}_unnested AS (
+  SELECT 
+    *,
+    ${itemSql}
+  FROM json_data, UNNEST(JSON_EXTRACT_ARRAY(${arrayName})) AS ${itemName}_item
+)`;
+  }
+
+  function generateObjectCTE(jsonPath, objName, obj) {
+    let objSqlParts = [];
+    for (let key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        objSqlParts.push(`JSON_EXTRACT_SCALAR(${objName}, '$.${key}') AS ${objName}_${key}`);
+      }
+    }
+    const objSql = objSqlParts.join(',\n    ');
+    return `${objName}_unnested AS (
+  SELECT 
+    *,
+    ${objSql}
+  FROM json_data
+)`;
+  }
+
+  processObject(jsonObj);
+
+  const mainQuery = `WITH json_data AS (
+  SELECT
+    ${sqlParts.join(',\n    ')}
+  FROM your_table
+),
+${ctes.join(',\n')}
+SELECT * FROM ${ctes[ctes.length - 1].split(' ')[0]};`;
+
+  // Escribe la consulta SQL generada en la hoja
+  sheet.getRange("B1").setValue(mainQuery);
+}
