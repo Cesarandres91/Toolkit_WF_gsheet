@@ -6,7 +6,7 @@ function procesarDatos() {
 
   // Obtener la lista de valores
   const ultimaFila = hojaBase.getLastRow();
-  const lista = hojaBase.getRange("A2:A" + ultimaFila).getValues().flat();
+  const lista = hojaBase.getRange("A2:A" + ultimaFila).getValues().flat().filter(String);
   const listaSet = new Set(lista); // Convertir a Set para búsqueda más rápida
 
   // Abrir el libro origen
@@ -26,6 +26,7 @@ function procesarDatos() {
   const numFilas = hojaDatosOrigen.getLastRow();
   let datosFiltrados = [];
   let filaInicio = 1;
+  let esEncabezado = true;
 
   while (filaInicio <= numFilas) {
     const filasALeer = Math.min(BATCH_SIZE, numFilas - filaInicio + 1);
@@ -33,7 +34,11 @@ function procesarDatos() {
     const datos = rangoLectura.getValues();
 
     const datosFiltradosLote = datos.filter((fila, index) => {
-      return filaInicio === 1 || listaSet.has(fila[0]);
+      if (esEncabezado) {
+        esEncabezado = false;
+        return true; // Siempre incluir la primera fila (encabezados)
+      }
+      return listaSet.has(fila[0]) && fila[0] !== "";
     });
 
     datosFiltrados = datosFiltrados.concat(datosFiltradosLote);
@@ -41,7 +46,9 @@ function procesarDatos() {
 
     // Escribir datos filtrados en lotes
     if (datosFiltrados.length >= BATCH_SIZE || filaInicio > numFilas) {
-      hojaDatos01.getRange(hojaDatos01.getLastRow() + 1, 1, datosFiltrados.length, numColumnas).setValues(datosFiltrados);
+      if (datosFiltrados.length > 0) {
+        hojaDatos01.getRange(hojaDatos01.getLastRow() + 1, 1, datosFiltrados.length, numColumnas).setValues(datosFiltrados);
+      }
       datosFiltrados = [];
     }
 
