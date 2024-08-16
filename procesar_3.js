@@ -6,6 +6,11 @@ function procesarDatos() {
   const COLUMNA_FILTRO = "A";
   const INDICE_COLUMNA_FILTRO = 0;
 
+  if (!hojaBase) {
+    Logger.log("Error: La hoja 'base' no existe.");
+    return;
+  }
+
   // Obtener la lista de valores
   const ultimaFila = hojaBase.getLastRow();
   const lista = hojaBase.getRange(`${COLUMNA_FILTRO}2:${COLUMNA_FILTRO}${ultimaFila}`).getValues()
@@ -14,9 +19,19 @@ function procesarDatos() {
     .map(value => value.toString().trim());
   const listaSet = new Set(lista);
 
-  // Abrir el libro origen
-  const libroOrigen = SpreadsheetApp.openById(LIBRO_ORIGEN_ID);
+  let libroOrigen;
+  try {
+    libroOrigen = SpreadsheetApp.openById(LIBRO_ORIGEN_ID);
+  } catch (error) {
+    Logger.log("Error al abrir el libro origen: " + error.message);
+    return;
+  }
+
   const hojaDatosOrigen = libroOrigen.getSheetByName("datos_origen");
+  if (!hojaDatosOrigen) {
+    Logger.log("Error: La hoja 'datos_origen' no existe en el libro origen.");
+    return;
+  }
 
   // Preparar la hoja de destino
   let hojaDatos01 = SS.getSheetByName("datos_01");
@@ -26,10 +41,6 @@ function procesarDatos() {
     hojaDatos01.clear();
   }
 
-  // Obtener todos los datos de origen
-  const datosOrigen = hojaDatosOrigen.getDataRange().getValues();
-  const numColumnas = datosOrigen[0].length;
-
   // Crear o limpiar la hoja "Errores"
   let hojaErrores = SS.getSheetByName("Errores");
   if (!hojaErrores) {
@@ -38,8 +49,13 @@ function procesarDatos() {
     hojaErrores.clearContents();
   }
 
+  // Obtener todos los datos de origen
+  const datosOrigen = hojaDatosOrigen.getDataRange().getValues();
+  const numColumnas = datosOrigen[0].length;
+
   let datosFiltrados = [];
   let esEncabezado = true;
+  const errores = [];
 
   // Filtrar datos y registrar errores
   datosOrigen.forEach((fila, index) => {
@@ -51,7 +67,7 @@ function procesarDatos() {
     } else if (listaSet.has(valorFiltroOrigen)) {
       datosFiltrados.push(fila);
     } else {
-      hojaErrores.appendRow([valorFiltroOrigen, "No encontrado"]);
+      errores.push([valorFiltroOrigen, "No encontrado"]);
     }
 
     // Escribir datos filtrados en lotes
@@ -68,6 +84,11 @@ function procesarDatos() {
       SpreadsheetApp.flush();
     }
   });
+
+  // Escribir los errores al final
+  if (errores.length > 0) {
+    hojaErrores.getRange(1, 1, errores.length, errores[0].length).setValues(errores);
+  }
 
   SpreadsheetApp.flush();
   Logger.log("Proceso completado");
