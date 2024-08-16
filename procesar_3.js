@@ -1,16 +1,17 @@
-
-```javascript
 function procesarDatos() {
   const SS = SpreadsheetApp.getActiveSpreadsheet();
   const hojaBase = SS.getSheetByName("base");
-  const LIBRO_ORIGEN_ID = "MI_ID"; // Reemplaza "MI_ID" con el ID real del libro origen
-  const BATCH_SIZE = 1000; // Tamaño del lote para procesar y escribir datos
-  const COLUMNA_FILTRO = "A"; // Cambia esto a la letra de la columna que quieres usar
-  const INDICE_COLUMNA_FILTRO = 0; // Cambia esto al índice de la columna que quieres usar (0 para A, 1 para B, 2 para C, etc.)
+  const LIBRO_ORIGEN_ID = "MI_ID"; // Reemplaza con el ID real
+  const BATCH_SIZE = 1000;
+  const COLUMNA_FILTRO = "A";
+  const INDICE_COLUMNA_FILTRO = 0;
 
   // Obtener la lista de valores
   const ultimaFila = hojaBase.getLastRow();
-  const lista = hojaBase.getRange(`${COLUMNA_FILTRO}2:${COLUMNA_FILTRO}${ultimaFila}`).getValues().flat().filter(String);
+  const lista = hojaBase.getRange(`${COLUMNA_FILTRO}2:${COLUMNA_FILTRO}${ultimaFila}`).getValues()
+    .flat()
+    .filter(String)
+    .map(value => value.toString().trim());
   const listaSet = new Set(lista);
 
   // Abrir el libro origen
@@ -29,16 +30,28 @@ function procesarDatos() {
   const datosOrigen = hojaDatosOrigen.getDataRange().getValues();
   const numColumnas = datosOrigen[0].length;
 
+  // Crear o limpiar la hoja "Errores"
+  let hojaErrores = SS.getSheetByName("Errores");
+  if (!hojaErrores) {
+    hojaErrores = SS.insertSheet("Errores");
+  } else {
+    hojaErrores.clearContents();
+  }
+
   let datosFiltrados = [];
   let esEncabezado = true;
 
-  // Filtrar datos
+  // Filtrar datos y registrar errores
   datosOrigen.forEach((fila, index) => {
+    const valorFiltroOrigen = fila[INDICE_COLUMNA_FILTRO].toString().trim();
+
     if (esEncabezado) {
       datosFiltrados.push(fila);
       esEncabezado = false;
-    } else if (listaSet.has(fila[INDICE_COLUMNA_FILTRO]) && fila[INDICE_COLUMNA_FILTRO] !== "") {
+    } else if (listaSet.has(valorFiltroOrigen)) {
       datosFiltrados.push(fila);
+    } else {
+      hojaErrores.appendRow([valorFiltroOrigen, "No encontrado"]);
     }
 
     // Escribir datos filtrados en lotes
@@ -59,15 +72,4 @@ function procesarDatos() {
   SpreadsheetApp.flush();
   Logger.log("Proceso completado");
 }
-```
-
-Cambios principales:
-
-1. **Obtención de datos**: En lugar de usar `getRange()` con `getLastRow()`, ahora usamos `getDataRange().getValues()` para obtener todos los datos de la hoja de origen. Esto ignora cualquier filtro aplicado y obtiene todos los datos.
-
-2. **Procesamiento de datos**: Ahora procesamos los datos fila por fila usando `forEach()`, lo que nos permite manejar más fácilmente el encabezado y aplicar el filtro.
-
-3. **Escritura por lotes**: Mantenemos la escritura por lotes para optimizar el rendimiento.
-
-4. **Manejo de filtros**: Al obtener todos los datos de una vez, evitamos problemas con filtros existentes.
 
